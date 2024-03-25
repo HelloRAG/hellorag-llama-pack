@@ -1,0 +1,28 @@
+.idea
+*.log
+*-schedule.bak
+*-schedule.dat
+*-schedule.dir
+*.pyc
+*~
+db.sqlite3
+.sass-cache/
+celerybeat-schedule
+hellorag/localsettings.py
+hellorag/local.py
+static_root/
+node_modules/
+openapitools.json
+media/
+docs/_build
+_dist/
+.env
+.env.production
+.DS_Store
+.direnv
+.envrc
+tmp/
+
+# uncomment these lines after setting up the front-end build pipeline in dev and production
+# static/css/
+# static/js/

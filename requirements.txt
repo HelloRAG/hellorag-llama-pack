@@ -1,0 +1,3 @@
+lxml~=5.1.0
+llama-index~=0.10.18
+reportlab~=4.0.6
