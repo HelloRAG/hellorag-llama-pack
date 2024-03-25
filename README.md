@@ -19,7 +19,7 @@ Put the exported zip files from HelloRAG under a directory such as /data/hellora
 > ├──some_other.pdf.zip  
 > ...
 
-## 1.4 Setup LLM(For example: OpenAI)
+## 1.4 Setup LLM (For example: OpenAI)
 Make sure your API key is available to your code by setting it as an environment variable.   
 In MacOS and Linux, this is the command:
 
@@ -28,7 +28,7 @@ or on Windows it is
 
 ```set OPENAI_API_KEY=XXXXX```
 
-Also you can set the key in python code(NOT RECOMMENDED):
+Also you can set the key in python code (NOT RECOMMENDED):
 
 
 ```
@@ -40,7 +40,7 @@ Settings.llm = OpenAI(model="xxx", api_key="yyy")
 
 ## 2.1 Indexding for Local Data File
 
-A simple and quick way for you to perform rapid experimentation or internal product test. You can also modify it in further based on the HelloRAG Llama Pack. 
+This is a simple and quick way for you to do a rapid experimentation or internal product test. You can also modify it in further based on the HelloRAG Llama Pack. 
 
 ### 2.1.1 Setup for the Initial Indexing & Re-indexing
 
@@ -71,7 +71,7 @@ print(response.source_nodes)
 In product-grade applications, services are typically provided by multiple applications under a load balancer. Therefore, storing referenced local files is not a suitable approach. S3 or other Object Storage Service (OSS) options could be used as alternatives. However, issues such as inconsistencies due to index updates may still arise. A relatively better approach is to store vectors in a dedicated vector database. For this instruction, we will use qdrant as an example.
 
 ### 2.2.1 Prerequsites
-* Install Qdrant and establish collection. For detials please refer to qdrant [doc] (htpps://qdrant.tech/documentation/). 
+* Install Qdrant (as an example) and establish collection. For detials please refer to qdrant [doc] (htpps://qdrant.tech/documentation/). 
 * Install LlamaIndex qdrant store: ```pip install llama-index-vector-stores-qdrant```
 
 ### 2.2.2 Setup for the Initial Indexing & Re-indexing
