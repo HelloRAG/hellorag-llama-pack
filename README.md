@@ -83,7 +83,7 @@ from llama_index.vector_stores.qdrant import QdrantVectorStore
 import qdrant_client
 from llama_index.core import StorageContext
 qdrant = qdrant_client.QdrantClient(
-    location="2192.168.1.10:1356"
+    location="192.168.1.10:1356"
 )
 # Create Qdrant vector storing
 qdrant_vector_store = QdrantVectorStore(client=qdrant, collection_name="hellorag")
@@ -101,7 +101,7 @@ from llama_index.vector_stores.qdrant import QdrantVectorStore
 import qdrant_client
 from llama_index.core import StorageContext
 qdrant = qdrant_client.QdrantClient(
-    location="2192.168.1.10:1356"
+    location="192.168.1.10:1356"
 )
 # Create Qdrant Vector Store
 qdrant_vector_store = QdrantVectorStore(client=qdrant, collection_name="hellorag")
