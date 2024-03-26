@@ -171,7 +171,6 @@ class BetterTablesHelloragPack(BaseLlamaPack):
                                 node.metadata['page_no'] = page_no
                                 node.metadata['file_name'] = content_file_name
                                 node.metadata['table_html'] = table_html
-                                node.metadata['typeaz'] = 'table'
                                 all_nodes.append(node)
 
                     # After processing all text within the ZIP, generate a PDF
