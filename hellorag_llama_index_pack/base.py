@@ -110,8 +110,8 @@ class BetterTablesHelloragPack(BaseLlamaPack):
 
         # Initialize retrievers, query engine, and chat engine
         self.retriever = self._index.as_retriever(similarity_top_k=top_k)
-        self.query_engine = self._index.as_query_engine()
-        self.chat_engine = self._index.as_chat_engine()
+        self.query_engine = self._index.as_query_engine(similarity_top_k=top_k)
+        self.chat_engine = self._index.as_chat_engine(similarity_top_k=top_k)
 
     def build_index(self, base_path, chunk_overlap, chunk_size, font_path, index_path, storage_context):
         """
