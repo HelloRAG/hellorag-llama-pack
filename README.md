@@ -71,7 +71,7 @@ print(response.source_nodes)
 In product-grade applications, services are typically provided by multiple applications under a load balancer. Therefore, storing referenced local files is not a suitable approach. S3 or other Object Storage Service (OSS) options could be used as alternatives. However, issues such as inconsistencies due to index updates may still arise. A relatively better approach is to store vectors in a dedicated vector database. For this instruction, we will use qdrant as an example.
 
 ### 2.2.1 Prerequsites
-* Install Qdrant (as an example) and establish collection. For detials please refer to qdrant [doc] (htpps://qdrant.tech/documentation/). 
+* Install Qdrant (as an example) and establish collection. For detials please refer to qdrant [doc](https://qdrant.tech/documentation/). 
 * Install LlamaIndex qdrant store: ```pip install llama-index-vector-stores-qdrant```
 
 ### 2.2.2 Setup for the Initial Indexing & Re-indexing
