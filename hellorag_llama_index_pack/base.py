@@ -166,8 +166,6 @@ class BetterTablesHelloragPack(BaseLlamaPack):
                                 soup = BeautifulSoup(table_html, 'html.parser')
                                 texts = [''.join(c for c in td.stripped_strings if not re.match(r'^-?\d+(\.\d+)?$', c)) for tr in soup.find_all('tr') for td in tr.find_all('td')]
                                 html_core_content='\n'.join(texts).replace("\n\n","\n")
-                                print(page_no,html_core_content)
-                                print('''---------------------------''')
                                 node = TextNode(text=f"{title}\n{description}\n{html_core_content}",
                                                 id_=f"{uuid.uuid4()}")
                                 node.metadata['page_no'] = page_no
