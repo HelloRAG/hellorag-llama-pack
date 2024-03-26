@@ -60,7 +60,7 @@ from hellorag_llama_index_pack.base import BetterTablesHelloragPack
 hellorag_pack = BetterTablesHelloragPack(
     index_path="/data/hellorag/index",
 )
-response = hellorag_pack.run("What is the minimum and maximum TOEFL iBT score range for the Advanced level in the Speaking section? ")
+response = hellorag_pack.run("这里放你的问题")
 print(response)
 print(response.source_nodes)
 ```
@@ -107,7 +107,7 @@ storage_context = StorageContext.from_defaults(vector_store=qdrant_vector_store)
 hellorag_pack = BetterTablesHelloragPack(
     storage_context=storage_context,
 )
-response = hellorag_pack.run("What is the minimum and maximum TOEFL iBT score range for the Advanced level in the Speaking section? ")
+response = hellorag_pack.run("这里放你的问题 ")
 print(response)
 print(response.source_nodes)
 ```
