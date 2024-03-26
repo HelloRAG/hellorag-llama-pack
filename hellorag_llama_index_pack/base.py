@@ -1,9 +1,11 @@
 import os
+import re
 import uuid
 import zipfile
 from typing import Any
 from typing import Dict
 
+from bs4 import BeautifulSoup
 from llama_index.core import VectorStoreIndex, StorageContext, load_index_from_storage, SimpleDirectoryReader
 from llama_index.core.llama_pack import BaseLlamaPack
 from llama_index.core.node_parser import SentenceSplitter
@@ -161,11 +163,17 @@ class BetterTablesHelloragPack(BaseLlamaPack):
                                 description = html_root.xpath('//p/text()')[0]
                                 first_table = html_root.xpath('//table')[0]
                                 table_html = etree.tostring(first_table, method='html', encoding='unicode')
-                                node = TextNode(text=f"{title}\n{description}",
+                                soup = BeautifulSoup(table_html, 'html.parser')
+                                texts = [''.join(c for c in td.stripped_strings if not re.match(r'^-?\d+(\.\d+)?$', c)) for tr in soup.find_all('tr') for td in tr.find_all('td')]
+                                html_core_content='\n'.join(texts).replace("\n\n","\n")
+                                print(page_no,html_core_content)
+                                print('''---------------------------''')
+                                node = TextNode(text=f"{title}\n{description}\n{html_core_content}",
                                                 id_=f"{uuid.uuid4()}")
                                 node.metadata['page_no'] = page_no
                                 node.metadata['file_name'] = content_file_name
                                 node.metadata['table_html'] = table_html
+                                node.metadata['typeaz'] = 'table'
                                 all_nodes.append(node)
 
                     # After processing all text within the ZIP, generate a PDF
