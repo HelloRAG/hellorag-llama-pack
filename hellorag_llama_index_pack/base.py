@@ -109,7 +109,7 @@ class BetterTablesHelloragPack(BaseLlamaPack):
             raise ValueError("Can not initiate index")
 
         # Initialize retrievers, query engine, and chat engine
-        self.retriever = self._index.as_retriever(top_k=top_k)
+        self.retriever = self._index.as_retriever(similarity_top_k=top_k)
         self.query_engine = self._index.as_query_engine()
         self.chat_engine = self._index.as_chat_engine()
 
@@ -165,7 +165,7 @@ class BetterTablesHelloragPack(BaseLlamaPack):
                                 table_html = etree.tostring(first_table, method='html', encoding='unicode')
                                 soup = BeautifulSoup(table_html, 'html.parser')
                                 texts = [''.join(c for c in td.stripped_strings if not re.match(r'^-?\d+(\.\d+)?$', c)) for tr in soup.find_all('tr') for td in tr.find_all('td')]
-                                html_core_content='\n'.join(texts).replace("\n\n","\n")
+                                html_core_content=''.join(texts).replace("  "," ")
                                 node = TextNode(text=f"{title}\n{description}\n{html_core_content}",
                                                 id_=f"{uuid.uuid4()}")
                                 node.metadata['page_no'] = page_no
@@ -232,7 +232,7 @@ class BetterTablesHelloragPack(BaseLlamaPack):
         """
         return {
             "retriever": self.retriever,
-            "chat_engine": self.query_engine,
+            "chat_engine": self.chat_engine,
             "query_engine": self.query_engine,
         }
 
