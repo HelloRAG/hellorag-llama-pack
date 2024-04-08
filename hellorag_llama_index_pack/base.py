@@ -1,19 +1,25 @@
+import base64
+import json
 import os
 import re
 import uuid
 import zipfile
 from typing import Any
 from typing import Dict
-
+from llama_index.core import PromptTemplate
 from bs4 import BeautifulSoup
 from llama_index.core import VectorStoreIndex, StorageContext, load_index_from_storage, SimpleDirectoryReader
+from llama_index.core.bridge.pydantic import Field
 from llama_index.core.llama_pack import BaseLlamaPack
 from llama_index.core.node_parser import SentenceSplitter
-from llama_index.core.schema import TextNode
+from llama_index.core.postprocessor.types import BaseNodePostprocessor
+from llama_index.core.schema import NodeWithScore, QueryBundle
+from llama_index.core.schema import TextNode, ImageNode
 from lxml import etree
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
+from typing import List, Optional
 
 TABLE_INDEX = "table_index"
 ALL_TEXT_INDEX = "all_text_index"
@@ -35,20 +41,43 @@ def delete_file(file_path):
         print(f"delete temp file error:{file_path}")  # Print an error message if the deleting of the file fails
 
 
+class TableHtmlReplacementPostProcessor(BaseNodePostprocessor):
+    target_metadata_key: str = Field(
+        description="Target metadata key to replace node content with."
+    )
+
+    def __init__(self) -> None:
+        super().__init__(target_metadata_key='a')
+
+    @classmethod
+    def class_name(cls) -> str:
+        return "TableHtmlReplacementPostProcessor"
+
+    def _postprocess_nodes(
+            self,
+            nodes: List[NodeWithScore],
+            query_bundle: Optional[QueryBundle] = None,
+    ) -> List[NodeWithScore]:
+        for n in nodes:
+            if 'table_html' in n.node.metadata:
+                n.node.set_content("")
+        return nodes
+
+
 def sort_text_node(elem):
     """
     Sorts text node based on its page number.
 
     Parameters:
-    elem: An element containing text node information, which should have a 'metadata' dictionary attribute with a 'page_no' key representing the page number.
+    elem: An element containing text node information, which should have a 'metadata' dictionary attribute with a 'page_label' key representing the page number.
 
     Returns:
     An integer indicating the page number where this element is located.
     """
-    return int(elem.metadata['page_no'])
+    return int(elem.metadata['page_label'])
 
 
-class BetterTablesHelloragPack(BaseLlamaPack):
+class HelloragLlamaindexPack(BaseLlamaPack):
     """
         A better tables retriever pack —— By HelloRAG.ai
 
@@ -63,6 +92,8 @@ class BetterTablesHelloragPack(BaseLlamaPack):
             font_path: str = None,
             chunk_size: int = 512,
             chunk_overlap: int = 200,
+            no_use_image_in_rag: bool = False,
+            image_to_url_function=None,
             top_k: int = 3,
             **kwargs: Any,
     ) -> None:
@@ -77,6 +108,8 @@ class BetterTablesHelloragPack(BaseLlamaPack):
         - font_path: An optional font path for settings during index construction.
         - chunk_size: The size of chunks used when building the index.
         - chunk_overlap: The overlap size of chunks when building the index.
+        - no_use_image_in_rag：Set True to ignore all images
+        - image_to_url_function：The funciont that can upload image to somewhere and return uploaded image url.If not set,the image will be transformed to base64 saved in vector index
         - top_k: The number of results to return during retrieval.
         - **kwargs: Additional keyword arguments,but not used yet
 
@@ -93,7 +126,8 @@ class BetterTablesHelloragPack(BaseLlamaPack):
 
         if need_refresh:
             # Build the index with provided parameters
-            self.build_index(base_path, chunk_overlap, chunk_size, font_path, index_path, storage_context)
+            self.build_index(base_path, chunk_overlap, chunk_size, font_path, index_path, storage_context,
+                             no_use_image_in_rag, image_to_url_function)
 
         # Load the index
         self._index = None
@@ -110,10 +144,27 @@ class BetterTablesHelloragPack(BaseLlamaPack):
 
         # Initialize retrievers, query engine, and chat engine
         self.retriever = self._index.as_retriever(similarity_top_k=top_k)
+        new_summary_tmpl_str = (
+            "Context information is below.\n"
+            "You are helpful assistant. Read the tables row by row and col by col. DO NOT DO ANY SUMMARIZATION, instead, LIST ALL THE DETAILS CLEARLY. Then, Answer the {query_str} without using any guessing and implicit information. DO NOT ADD ANYTHING THAT IS NOT DIRECTLY RELEVANT TO ANSWER THE {query_str} AND DO NOT MISS ANYTHING ALSO. DO NOT RETURN THE FIRST ENTRY OF THE FIRST TABLE, If it does not answer to the {query_str} \n"
+            "---------------------\n"
+            "{context_str}\n"
+            "---------------------\n"
+
+            "Query: {query_str}\n"
+            "only return the answers to the {query_str} \n"
+            "IGNORE THE FIRST ENTRY OF THE FIRST TABLE IF IT IS NOT RELEVENT \n"
+            "MAKE SURE THE LAST ENTRY OF THE LAST TABLE IS INCLUDED IF IT IS RELEVANT \n"
+        )
         self.query_engine = self._index.as_query_engine(similarity_top_k=top_k)
+        self.query_engine._node_postprocessors.append(TableHtmlReplacementPostProcessor())
+        self.query_engine.update_prompts(
+            {"response_synthesizer:text_qa_template": PromptTemplate(new_summary_tmpl_str)}
+        )
         self.chat_engine = self._index.as_chat_engine(similarity_top_k=top_k)
 
-    def build_index(self, base_path, chunk_overlap, chunk_size, font_path, index_path, storage_context):
+    def build_index(self, base_path, chunk_overlap, chunk_size, font_path, index_path, storage_context,
+                    no_use_image_in_rag, image_to_url_function):
         """
         Builds the index by processing files in the specified base path or in the vector store in storage_context
 
@@ -146,15 +197,44 @@ class BetterTablesHelloragPack(BaseLlamaPack):
                             if member.is_dir():
                                 continue
                             member_name = member.filename
-                            if member_name.find('/') == -1:
+                            if member_name.find('__MACOSX') != -1:
                                 continue
+                            if member_name.find('/') == -1:
+                                if member_name != 'image.json':
+                                    continue
+                                if no_use_image_in_rag:
+                                    continue
+                                image_infos = json.loads(myzip.read(member).decode('utf-8'))
+                                if image_infos and len(image_infos) > 0:
+                                    for image_info in image_infos:
+                                        title = ''
+                                        if 'title' in image_info and image_info['title']:
+                                            title = image_info['title']
+                                        description = ''
+                                        if 'scriptionle' in image_info and image_info['description']:
+                                            description = image_info['description']
+                                        if len(title.strip()) + len(description.strip()) == 0:
+                                            continue
+                                        image_url = None
+                                        image_base64 = None
+                                        if image_to_url_function:
+                                            image_url = image_to_url_function(myzip.read(image_info['path'][2:]))
+                                        else:
+                                            image_base64 = base64.b64encode(myzip.read(image_info['path'][2:])).decode(
+                                                'utf-8')
+                                        node = ImageNode(text=f"{title}\n{description}", id_=f"{uuid.uuid4()}",
+                                                         image=image_base64, image_url=image_url)
+                                        node.metadata['page_label'] = image_info['page']
+                                        node.metadata['file_name'] = content_file_name
+                                        node.metadata['chunk_type'] = 'image'
+                                        all_nodes.append(node)
                             member_path_split = member_name.split('/')
-                            page_no = member_path_split[0]
+                            page_label = member_path_split[0]
                             base_name, ext = os.path.splitext(member_name)
                             if ext == '.txt':
                                 # Handle text files
                                 content = myzip.read(member).decode('utf-8')
-                                all_text_nodes_map[page_no] = content
+                                all_text_nodes_map[page_label] = content
                             elif ext == '.html':
                                 # Handle HTML files
                                 content = myzip.read(member).decode('utf-8')
@@ -164,13 +244,15 @@ class BetterTablesHelloragPack(BaseLlamaPack):
                                 first_table = html_root.xpath('//table')[0]
                                 table_html = etree.tostring(first_table, method='html', encoding='unicode')
                                 soup = BeautifulSoup(table_html, 'html.parser')
-                                texts = [''.join(c for c in td.stripped_strings if not re.match(r'^-?\d+(\.\d+)?$', c)) for tr in soup.find_all('tr') for td in tr.find_all('td')]
-                                html_core_content=''.join(texts).replace("  "," ")
+                                texts = [''.join(c for c in td.stripped_strings if not re.match(r'^-?\d+(\.\d+)?$', c))
+                                         for tr in soup.find_all('tr') for td in tr.find_all('td')]
+                                html_core_content = ''.join(texts).replace("  ", " ")
                                 node = TextNode(text=f"{title}\n{description}\n{html_core_content}",
                                                 id_=f"{uuid.uuid4()}")
-                                node.metadata['page_no'] = page_no
+                                node.metadata['page_label'] = page_label
                                 node.metadata['file_name'] = content_file_name
                                 node.metadata['table_html'] = table_html
+                                node.metadata['chunk_type'] = 'table'
                                 all_nodes.append(node)
 
                     # After processing all text within the ZIP, generate a PDF
@@ -260,4 +342,3 @@ class BetterTablesHelloragPack(BaseLlamaPack):
             Any: The result of the pipeline query.
         """
         return self.query_engine.query(*args, **kwargs)
-

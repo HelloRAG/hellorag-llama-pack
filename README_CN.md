@@ -45,8 +45,8 @@ Settings.llm = OpenAI(model="xxx", api_key="yyy")
 ### 2.1.1 首次索引 & 重建索引
 假设您的索引文件要放到/data/hellorag/index下。
 ```python
-from hellorag_llama_index_pack.base import BetterTablesHelloragPack
-hellorag_pack = BetterTablesHelloragPack(
+from hellorag_llama_index_pack.base import HelloragLlamaindexPack
+hellorag_pack = HelloragLlamaindexPack(
     base_path="/data/hellorag/results",
     need_refresh=True,
     index_path="/data/hellorag/index",
@@ -56,8 +56,8 @@ hellorag_pack = BetterTablesHelloragPack(
 ### 2.1.2 在RAG流程中用本地索引进行查询 
 
 ```python
-from hellorag_llama_index_pack.base import BetterTablesHelloragPack
-hellorag_pack = BetterTablesHelloragPack(
+from hellorag_llama_index_pack.base import HelloragLlamaindexPack
+hellorag_pack = HelloragLlamaindexPack(
     index_path="/data/hellorag/index",
 )
 response = hellorag_pack.run("这里放你的问题")
@@ -69,14 +69,14 @@ print(response.source_nodes)
 
 在产品级应用中，服务通常由多个应用程序在负载均衡器下提供。因此，索引存储的本地文件并不是最合适的方法。S3或其他对象存储服务（OSS）选项可以作为替代。然而，由于索引更新导致的不一致问题、IO性能仍然存在。一个建议的方法是将索引存储在外部向量库中，在性能、扩容、同步性上面逗有足够的保障和提升。
 
-### 2.2.1 前置安装Prerequsites
+### 2.2.1 前置安装
 * 安装Qdrant，并建立collection。由于不是本篇主要内容，请参考[Qdrant](htpps://qdrant.tech/documentation/)相关文档进行操作   
 * 安装llama-index的qdrant相关向量存储库 ```pip install llama-index-vector-stores-qdrant```
 
 ### 2.2.2 首次索引 & 重建索引
 以下代码示例假设您已经建立Qdrant的collection，名为hellorag，并且Qdrant的地址为192.168.1.10:1356
 ```python
-from hellorag_llama_index_pack.base import BetterTablesHelloragPack
+from hellorag_llama_index_pack.base import HelloragLlamaindexPack
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 import qdrant_client
 from llama_index.core import StorageContext
@@ -86,15 +86,15 @@ qdrant = qdrant_client.QdrantClient(
 # Create Qdrant vector storing
 qdrant_vector_store = QdrantVectorStore(client=qdrant, collection_name="hellorag")
 storage_context = StorageContext.from_defaults(vector_store=qdrant_vector_store)
-hellorag_pack = BetterTablesHelloragPack(
-    base_path="/Users/xlent/Downloads/hellorag-result",
+hellorag_pack = HelloragLlamaindexPack(
+    base_path="/data/hellorag-result",
     need_refresh=True,
     storage_context=storage_context,
 )
 ```
 ### 2.2.3 在RAG流程中使用向量库查询 
 ```python
-from hellorag_llama_index_pack.base import BetterTablesHelloragPack
+from hellorag_llama_index_pack.base import HelloragLlamaindexPack
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 import qdrant_client
 from llama_index.core import StorageContext
@@ -104,7 +104,7 @@ qdrant = qdrant_client.QdrantClient(
 # Create Qdrant Vector Store
 qdrant_vector_store = QdrantVectorStore(client=qdrant, collection_name="hellorag")
 storage_context = StorageContext.from_defaults(vector_store=qdrant_vector_store)
-hellorag_pack = BetterTablesHelloragPack(
+hellorag_pack = HelloragLlamaindexPack(
     storage_context=storage_context,
 )
 response = hellorag_pack.run("这里放你的问题 ")
@@ -117,14 +117,28 @@ print(response.source_nodes)
 [Qdrant Vector Store](https://docs.llamaindex.ai/en/stable/examples/vector_stores/QdrantIndexDemo.html)  
 其他向量库存档使用方式参见 [Vector Stores](https://docs.llamaindex.ai/en/stable/module_guides/storing/vector_stores.html)
 
-# 3. 其他注意事项
+# 3. 图片RAG流程
+默认情况下，图片会参与RAG流程。如果不想图片参与RAG流程，可以在建立索引的时候加上参数```no_use_image_in_rag=True```  
+只有已经填写了标题和描述后导出的图片才会参与RAG流程，查询或者检索后通过查看source_nodes方式可以获得对应的ImageNode。  
+**注意：**
+* 默认图片会用base64方式存储到索引里，返回的source_node.node.image里面，默认是png格式，如果需要展示请根据具体展示的格式进行转换并添加对应头部
+* 以上方式更适合快速实验或者图片不多的情况。如果需要产品级方案，建议写一个方法，将图片保存到服务器并返回可访问url方式。然后再建立检索的时候加上参数```image_to_url_function=fun_image_to_url```
+```python
+def fun_image_to_url(image_hex):
+    # upload to your server
+    url=...
+    return url
+```
+
+
+# 4. 其他注意事项
 ## 参数都是可选的？应该怎么使用？
-具体请参见代码注释
+* 具体请参见代码注释
 
 ## 中文出现乱码
 在建立索引初始化hellorag_pack的时候加上本地的字体路径，例如
 ```python
-hellorag_pack = BetterTablesHelloragPack(
+hellorag_pack = HelloragLlamaindexPack(
     .......,
     need_refresh=True,
     font_path="/System/Library/Fonts/STHeiti Light.ttc"
@@ -133,4 +147,7 @@ hellorag_pack = BetterTablesHelloragPack(
 * 使用的时候不用加这个变量初始值
 
 ## 我想用本地LLM/Embedding 模型
-参考 [Configuring Settings](https://docs.llamaindex.ai/en/stable/module_guides/supporting_modules/settings.html).
+* 参考 [Configuring Settings](https://docs.llamaindex.ai/en/stable/module_guides/supporting_modules/settings.html).
+
+## 有没有更快上手使用的demo？
+* 参见 [DEMOS](https://github.com/HelloRAG/hellorag-demos)
